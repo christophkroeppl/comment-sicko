@@ -1,0 +1,66 @@
+name: comment-sicko
+version: 0.1.0
+manifest_version: 2
+api_version: 1
+license: MIT
+homepage: https://github.com/christophkroeppl/comment-sicko
+author: Christoph Kroeppl
+description: >-
+  Stops models from filling code with comments. Three layers: a write-time gate
+  that strips deletable comments before write_file/patch, a turn-end gate that
+  catches whatever slipped through, and the Comment Sicko reviewer subagent.
+  Toggle each layer with /comment-sicko, per profile.
+tags: [comments, code-style, lint, review, guardrails]
+provides_tools:
+  - comment_sicko
+provides_hooks:
+  - pre_tool_call
+  - transform_tool_result
+  - pre_verify
+config_schema:
+  write_gate_mode:
+    type: string
+    default: modify
+    description: >-
+      Layer 1. off = never touches writes; modify = strips deletable comment
+      lines before write_file/patch and tells the model what went; block =
+      refuses the write and names the lines; audit = observes only.
+    choices: [off, modify, block, audit]
+  verify_gate_mode:
+    type: string
+    default: modify
+    description: >-
+      Layer 2. Scans files edited this turn before the turn ends and asks the
+      agent to remove what is left. off / audit / modify / block, as above
+      (the gate only ever asks, so block behaves as modify).
+    choices: [off, modify, block, audit]
+  sicko_enabled:
+    type: boolean
+    default: false
+    description: >-
+      Layer 3. Spawn the Comment Sicko reviewer subagent. Off by default
+      because it costs a model call; the tool refuses while off.
+  protect_allowances:
+    type: boolean
+    default: true
+    description: >-
+      Keep the six allowances (legal header, external constraint, public API
+      contract, issue/ADR link, tool directive, formatter directive). These
+      classify as KEEP and are never removed either way. How far removal
+      reaches is audit_fail_level, not this switch.
+  audit_fail_level:
+    type: string
+    default: REVIEW
+    description: >-
+      Floor for what counts as deletable. REVIEW also removes the judgement
+      calls, which is where narration lands; DELETE restricts removal to the
+      mechanical findings only. Across the Hermes tree 98.3% of findings are
+      REVIEW, so DELETE leaves the gate nearly inert.
+    choices: [DELETE, REVIEW]
+  report_to:
+    type: string
+    default: tool_result
+    description: >-
+      Where layer 1 reports what it removed. tool_result appends the note to
+      the tool result so the model learns; off is silent.
+    choices: [tool_result, off]
