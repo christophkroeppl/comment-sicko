@@ -12,6 +12,8 @@ Stops models from filling code with comments. Three enforcement layers, toggleab
 
 Models narrate code they just wrote. The same comment appears three times in three slightly different ways. The code explains itself; the comments just repeat it.
 
+Inspired by [poteto's engineering rigor stack](https://github.com/cursor/plugins/tree/main/pstack) and its Hermes port [pstack by Cloeille](https://github.com/Cloeille/pstack).
+
 ## Three layers
 
 ```mermaid
