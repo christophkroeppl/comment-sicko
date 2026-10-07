@@ -48,6 +48,11 @@ NARRATIVE_RE = re.compile(
     + r")(?:ing|s)?\b", re.I
 )
 
+THIS_NOUN_VERB_RE = re.compile(
+    r"^\W*this\s+\w+\s+(" + "|".join(sorted(NARRATIVE_VERB, key=len, reverse=True))
+    + r")(?:ing|s)?\b", re.I
+)
+
 
 CAMEL = re.compile(r"[A-Z]?[a-z]+|[A-Z]+(?![a-z])")
 
@@ -335,6 +340,8 @@ def classify(path: str, line: int, body: str, next_line: str, ext: str,
         # line below it. A real explanation opens on a claim, not a verb.
         if cw and next_line:
             if NARRATIVE_RE.match(s) and len(s.split()) <= 8:
+                return ("DELETE", "narration")
+            if THIS_NOUN_VERB_RE.match(s):
                 return ("DELETE", "narration")
             ratio = overlap_ratio(cw, next_line)
             if ratio >= 0.75 and len(s.split()) <= 6:

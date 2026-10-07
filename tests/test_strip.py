@@ -312,6 +312,19 @@ def test_clean_file_untouched() -> None:
     check("clean file untouched", r.text == src and not r.changed)
 
 
+def test_this_noun_verb_narration_goes() -> None:
+    src = (
+        "# This function adds two numbers together and returns the sum\n"
+        "def add(a, b):\n"
+        "    return a + b\n"
+    )
+    out, removed = strip(src, "m.py")
+    check("this-noun-verb narration removed",
+          "This function adds" not in out, f"out={out!r}")
+    check("this-noun-verb narration reported", len(removed) == 1, f"removed={removed}")
+    check("code intact after this-noun-verb", "return a + b" in out)
+
+
 def test_trailing_comment_preserves_code_py() -> None:
     src = "x = 0  # reset counter\n"
     out, removed = strip(src, "m.py")
@@ -359,6 +372,7 @@ def main() -> int:
         test_no_trailing_newline_not_added, test_unknown_extension_declines,
         test_no_path_declines, test_markdown_not_mangled,
         test_review_verdict_respects_protections, test_clean_file_untouched,
+        test_this_noun_verb_narration_goes,
         test_trailing_comment_preserves_code_py,
         test_trailing_comment_preserves_code_js,
         test_trailing_comment_preserves_code_yaml,
