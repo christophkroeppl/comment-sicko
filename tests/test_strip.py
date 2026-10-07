@@ -312,6 +312,30 @@ def test_clean_file_untouched() -> None:
     check("clean file untouched", r.text == src and not r.changed)
 
 
+def test_trailing_comment_preserves_code_py() -> None:
+    src = "x = 0  # reset counter\n"
+    out, removed = strip(src, "m.py")
+    check("py trailing comment removed", "reset counter" not in out, f"out={out!r}")
+    check("py trailing code preserved", "x = 0" in out, f"out={out!r}")
+    check("py trailing comment reported", len(removed) == 1, f"removed={removed}")
+
+
+def test_trailing_comment_preserves_code_js() -> None:
+    src = "const x = 1; // set x\n"
+    out, removed = strip(src, "m.js")
+    check("js trailing comment removed", "set x" not in out, f"out={out!r}")
+    check("js trailing code preserved", "const x = 1;" in out, f"out={out!r}")
+    check("js trailing comment reported", len(removed) == 1, f"removed={removed}")
+
+
+def test_trailing_comment_preserves_code_yaml() -> None:
+    src = "key: v  # set key\n"
+    out, removed = strip(src, "m.yaml")
+    check("yaml trailing comment removed", "set key" not in out, f"out={out!r}")
+    check("yaml trailing code preserved", "key: v" in out, f"out={out!r}")
+    check("yaml trailing comment reported", len(removed) == 1, f"removed={removed}")
+
+
 def test_hash_inside_shell_expansion_survives() -> None:
     # A `#` inside `${...}` is not a comment. The line-comment finder matched
     # every `#` in the file, so `${file##*/}` was extracted as the "comment"
@@ -335,6 +359,9 @@ def main() -> int:
         test_no_trailing_newline_not_added, test_unknown_extension_declines,
         test_no_path_declines, test_markdown_not_mangled,
         test_review_verdict_respects_protections, test_clean_file_untouched,
+        test_trailing_comment_preserves_code_py,
+        test_trailing_comment_preserves_code_js,
+        test_trailing_comment_preserves_code_yaml,
         test_hash_inside_shell_expansion_survives,
     ):
         fn()

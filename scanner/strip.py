@@ -22,6 +22,7 @@ Two invariants, both load-bearing:
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -34,6 +35,7 @@ from .detect import (
     block_pair,
     generic_comments,
     line_token,
+    mask_strings,
     python_comments,
 )
 
@@ -87,12 +89,19 @@ def _verdict(text: str, span: tuple[int, int, str, bool], suffix: str) -> str:
     start, end, body, is_doc = span
     lines = text.splitlines()
     lt = line_token(Path(f"x{suffix}"))
+    bp = block_pair(Path(f"x{suffix}"))
     nxt = next_code_line(lines, end, lt)
+    is_trailing = False
+    if start == end and 1 <= start <= len(lines):
+        col = _comment_token_col(lines[start - 1], lt, bp)
+        if col is not None and col > 0 and lines[start - 1][:col].strip():
+            is_trailing = True
     level, _rule = classify(
         "", start, body, nxt, suffix, is_doc,
         multi_line=(end > start),
         share_code=code_share(lines, start, end, lt, suffix),
         lines=lines, end_line=end,
+        is_trailing=is_trailing,
     )
     return level
 
@@ -137,32 +146,22 @@ def strip_comments(
         result.skipped_reason = "could not parse comments; left alone"
         return result
 
+    lt = line_token(Path(basename or f"x{suffix}"))
+    bp = block_pair(Path(basename or f"x{suffix}"))
     threshold = LEVELS.index(fail_level if fail_level in LEVELS else "DELETE")
     chars = list(text)
     for start, end, body, is_doc in spans:
         level = _verdict(text, (start, end, body, is_doc), suffix)
         tag = f"{'docstring:' if is_doc else ''}{level.lower()}"
 
-        # KEEP is an allowance: it names a licence header, a formatter
-        # directive, an issue link, or a public contract. Never touched.
         if level == "KEEP":
             result.protected.append((start, tag, body.strip()[:80]))
             continue
-        # A docstring is executable surface (help(), doctest, __doc__), so
-        # removing one is a behaviour change rather than a comment edit.
         if is_doc:
             result.protected.append((start, "docstring", body.strip()[:80]))
             continue
 
         at_or_above = LEVELS.index(level) <= threshold
-        # `fail_level` is the single knob for how far the gate reaches:
-        # DELETE removes only the mechanical findings, REVIEW also removes the
-        # judgement calls. `protect_allowances` is deliberately NOT consulted
-        # here: it is named for the KEEP allowances (licence headers, tool
-        # directives, issue links), which are already skipped above and must
-        # never be removable. Gating REVIEW on it as well meant the default
-        # DELETE + protect_allowances=True pair stripped 1.7% of what it found,
-        # because narration classifies as REVIEW.
         permitted = at_or_above
         if not permitted:
             result.protected.append((start, tag, body.strip()[:80]))
@@ -170,10 +169,44 @@ def strip_comments(
 
         result.removed.append((start, tag, body.strip()[:80]))
         for lineno in range(start, min(end, len(text.splitlines())) + 1):
-            _blank_line(chars, text, lineno)
+            _blank_line_or_trailing(chars, text, lineno, lt, bp)
 
     result.text = "".join(chars).rstrip("\n") + ("\n" if text.endswith("\n") else "")
     return result
+
+
+def _comment_token_col(line: str, lt: str | None, bp) -> int | None:
+    """Return the column where the comment token starts, or None."""
+    masked = mask_strings(line)
+    if lt:
+        m = re.search(r"(?:(?<=\s)|^)" + re.escape(lt), masked)
+        if m:
+            return m.start()
+    if bp:
+        bs, be = bp if isinstance(bp, tuple) else (bp, "")
+        for token in (bs, be):
+            if token:
+                idx = masked.find(token)
+                if idx >= 0:
+                    return idx
+    return None
+
+
+def _blank_line_or_trailing(chars: list[str], text: str, lineno: int,
+                             lt: str | None, bp) -> None:
+    """Blank a comment line, preserving any code before a trailing comment."""
+    lines = text.splitlines(keepends=True)
+    if not (1 <= lineno <= len(lines)):
+        return
+    line = lines[lineno - 1]
+    col = _comment_token_col(line, lt, bp)
+    if col is not None and col > 0 and line[:col].strip():
+        offset = sum(len(l) for l in lines[:lineno - 1])
+        for pos in range(offset + col, offset + len(line)):
+            if chars[pos] != "\n":
+                chars[pos] = " "
+    else:
+        _blank_line(chars, text, lineno)
 
 
 def _blank_line(chars: list[str], text: str, lineno: int) -> None:

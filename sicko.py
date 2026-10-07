@@ -157,6 +157,7 @@ def review(ctx, paths: list[str] | None = None, *, use_diff: bool = True,
                 role="leaf",
                 correlation_id="comment-sicko-review",
                 allowed_toolsets=("file",),
+                blocked_tools=("write_file", "patch"),
             )
         )
     except Exception as exc:

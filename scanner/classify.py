@@ -248,7 +248,8 @@ CODE_SHARE_DEAD = 0.5
 def classify(path: str, line: int, body: str, next_line: str, ext: str,
              is_doc: bool = False, multi_line: bool = False,
              share_code: float = 0.0,
-             lines: list[str] | None = None, end_line: int | None = None
+             lines: list[str] | None = None, end_line: int | None = None,
+             is_trailing: bool = False,
              ) -> tuple[str, str]:
     """Return (level, rule) for a comment body.
 
@@ -286,6 +287,9 @@ def classify(path: str, line: int, body: str, next_line: str, ext: str,
     for needle, kind in FORMATTER:
         if needle.lower() in low:
             return ("REVIEW", kind)
+
+    if is_trailing:
+        return ("DELETE", "trailing-comment")
 
     if re.search(r"\b(TODO|FIXME|XXX|HACK)\b\s*[:(]?", s):
         return ("DELETE", "todo-marker")

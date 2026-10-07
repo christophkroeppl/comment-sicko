@@ -91,11 +91,30 @@ def os_walk(root: Path):
     return _os.walk(root)
 
 
+def _validate_base(base: str) -> str | None:
+    if base.startswith("-"):
+        return None
+    try:
+        r = subprocess.run(
+            ["git", "rev-parse", "--verify", "--quiet", f"{base}^{{commit}}"],
+            capture_output=True, text=True, timeout=30,
+        )
+        if r.returncode != 0:
+            return None
+    except (OSError, subprocess.SubprocessError):
+        return None
+    return base
+
+
 def git_diff_lines(base: str | None) -> dict[str, set[int]]:
     """Map path -> added line numbers for the working diff."""
     if base:
-        cmds = [["git", "diff", "--unified=0", f"{base}...HEAD"],
-                ["git", "diff", "--unified=0", base]]
+        safe_base = _validate_base(base)
+        if safe_base is None:
+            return {}
+        cmds = [["git", "diff", "--unified=0", "--end-of-options",
+                 f"{safe_base}...HEAD"],
+                ["git", "diff", "--unified=0", "--end-of-options", safe_base]]
     else:
         cmds = [["git", "diff", "--unified=0", "HEAD"], ["git", "diff", "--unified=0"]]
     out = ""
