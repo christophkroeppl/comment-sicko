@@ -113,7 +113,12 @@ def git_diff_lines(base: str | None) -> dict[str, set[int]]:
         if line.startswith("+++ "):
             p = line[4:].strip()
             current = None if p == "/dev/null" else p[2:] if p.startswith("b/") else p
-            result.setdefault(current, set())
+            # A hunk whose path is /dev/null has no file to scan. Registering a
+            # None key here used to make the caller do `Path(None)`, which
+            # raises "expected str or os.PathLike, not NoneType" and killed the
+            # whole review over a deleted file in the diff.
+            if current is not None:
+                result.setdefault(current, set())
             continue
         m = re.match(r"^@@ -\S+ \+(\d+)(?:,(\d+))? @@", line)
         if m and current:
