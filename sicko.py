@@ -207,10 +207,15 @@ def tool_schema() -> dict[str, Any]:
 
 
 def make_handler(ctx):
-    """Bind the plugin context into a tool handler."""
+    """Bind the plugin context into a tool handler.
 
-    def handler(**kwargs: Any) -> str:
-        args = kwargs.get("args")
+    The dispatcher calls ``handler(args, **kwargs)`` with the tool arguments as
+    a positional dict (tools/registry.py:909), so the first parameter must be
+    positional — a ``**kwargs``-only signature raises
+    "takes 0 positional arguments but 1 was given" on every call.
+    """
+
+    def handler(args: Any = None, **kwargs: Any) -> str:
         if not isinstance(args, dict):
             args = {k: v for k, v in kwargs.items() if k in {"paths", "use_diff", "base"}}
         paths = args.get("paths") or None

@@ -312,6 +312,17 @@ def test_clean_file_untouched() -> None:
     check("clean file untouched", r.text == src and not r.changed)
 
 
+def test_hash_inside_shell_expansion_survives() -> None:
+    # A `#` inside `${...}` is not a comment. The line-comment finder matched
+    # every `#` in the file, so `${file##*/}` was extracted as the "comment"
+    # `##*/}` and classified as a deletable divider -- the file's own variable
+    # stripping, reported as prose.
+    src = "name=${file##*/}\ncount=${#files[@]}\n"
+    r = strip_comments(src, "m.sh")
+    check("shell expansion not read as a comment", r.text == src and not r.changed,
+          f"removed={r.removed} out={r.text!r}")
+
+
 def main() -> int:
     print("stripper")
     for fn in (
@@ -324,6 +335,7 @@ def main() -> int:
         test_no_trailing_newline_not_added, test_unknown_extension_declines,
         test_no_path_declines, test_markdown_not_mangled,
         test_review_verdict_respects_protections, test_clean_file_untouched,
+        test_hash_inside_shell_expansion_survives,
     ):
         fn()
     print()

@@ -230,7 +230,12 @@ def generic_comments(text: str, lt: str | None, bp) -> list[tuple[int, int, str,
         masked = mask_strings(text)
 
     if lt:
-        for m in re.finditer(re.escape(lt) + r"[^\n]*", masked):
+        # A `#` starts a comment only at the start of a line or after
+        # whitespace. Without the boundary, `#` inside a shell expansion is
+        # read as a comment: `${file##*/}` yielded the "comment" `##*/}` and
+        # the file's own variable stripping was reported as a deletable
+        # divider. Python and the `--` languages have the same shape.
+        for m in re.finditer(r"(?:(?<=\s)|^)" + re.escape(lt) + r"[^\n]*", masked):
             ln = line_of(masked, m.start())
             nl = text.find("\n", m.start())
             body = text[m.start(): nl if nl != -1 else len(text)]
